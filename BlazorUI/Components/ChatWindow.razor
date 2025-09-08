@@ -1,15 +1,15 @@
 <div class="chat-window">
-    <input @bind="sporgsmaal" placeholder="Spørg om noget" /><button>spørg</button>
+    <input @bind="sporgsmaal" placeholder="Spørg om noget" /><button @onclick="svarmetode">spørg</button>
     <p>@svar</p>
 </div>
 
-@code{
+@code {
     private string sporgsmaal = "";
     private string svar = "";
     private void svarmetode() {
         if (string.IsNullOrWhiteSpace(sporgsmaal)) {
             svar = "Du har ikke skrevet noget!";
-        } else if(sporgsmaal == "Hej") {
+        } else if (sporgsmaal.ToLower() == "hej") {
             svar = "Hej! hvad kan jeg gøre for dig?";
         } else {
             svar = $"Du skrev: {sporgsmaal}";
