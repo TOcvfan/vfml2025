@@ -18,7 +18,7 @@ namespace Chatbot.NLU;
 public class HybridNlu : INluEngine {
     private readonly MLContext _mlContext;
     private readonly ITransformer _trainedModel;
-    private readonly PredictionEngine<HotelBookingData, HotelBookingPrediction> _predictor;
+    private readonly PredictionEngine<SupportData, SupportPrediction> _predictor;
 
     private readonly IDataView _unsupervisedData;
     private readonly ITransformer _kmeansModel;
@@ -43,23 +43,23 @@ public class HybridNlu : INluEngine {
             throw new FileNotFoundException($"CSV-filen blev ikke fundet: {path}");
 
         // Load supervised træningsdata
-        var data = _mlContext.Data.LoadFromTextFile<HotelBookingData>(
+        var data = _mlContext.Data.LoadFromTextFile<SupportData>(
             path: path,
             hasHeader: true,
             separatorChar: ',');
 
-        var pipeline = _mlContext.Transforms.Text.FeaturizeText("Features", nameof(HotelBookingData.Text))
-            .Append(_mlContext.Transforms.Conversion.MapValueToKey("Label", nameof(HotelBookingData.Intent)))
+        var pipeline = _mlContext.Transforms.Text.FeaturizeText("Features", nameof(SupportData.Text))
+            .Append(_mlContext.Transforms.Conversion.MapValueToKey("Label", nameof(SupportData.Intent)))
             .Append(_mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features"))
             .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
 
         _trainedModel = pipeline.Fit(data);
-        _predictor = _mlContext.Model.CreatePredictionEngine<HotelBookingData, HotelBookingPrediction>(_trainedModel);
+        _predictor = _mlContext.Model.CreatePredictionEngine<SupportData, SupportPrediction>(_trainedModel);
 
         // Unsupervised KMeans fallback
-        _unsupervisedData = _mlContext.Data.LoadFromTextFile<HotelBookingData>(
+        _unsupervisedData = _mlContext.Data.LoadFromTextFile<SupportData>(
      path: path, hasHeader: true, separatorChar: ',');
-        var kmeansPipeline = _mlContext.Transforms.Text.FeaturizeText("Features", nameof(HotelBookingData.Text))
+        var kmeansPipeline = _mlContext.Transforms.Text.FeaturizeText("Features", nameof(SupportData.Text))
             .Append(_mlContext.Clustering.Trainers.KMeans("Features", numberOfClusters: 3));
 
         _kmeansModel = kmeansPipeline.Fit(_unsupervisedData);
@@ -67,14 +67,14 @@ public class HybridNlu : INluEngine {
         // Map cluster IDs to intent heuristically (for fallback explanation)
         _clusterToIntent = new Dictionary<uint, string>
         {
-            { 0, "BookRoom" },
-            { 1, "ChangeBooking" },
-            { 2, "CancelBooking" }
+            { 0, "Login" },
+            { 1, "Password" },
+            { 2, "Bruger" }
         };
     }
 
     public NluResult Predict(string input) {
-        var prediction = _predictor.Predict(new HotelBookingData { Text = input });
+        var prediction = _predictor.Predict(new SupportData { Text = input });
 
         if (!string.IsNullOrEmpty(prediction.PredictedIntent)) {
             return new NluResult(prediction.PredictedIntent, ExtractEntities(input));
@@ -82,7 +82,7 @@ public class HybridNlu : INluEngine {
 
         // Fallback til clustering
         var vectorized = _mlContext.Data.LoadFromEnumerable(new[] {
-            new HotelBookingData { Text = input }
+            new SupportData { Text = input }
         });
 
         var transformed = _kmeansModel.Transform(vectorized);
@@ -94,19 +94,21 @@ public class HybridNlu : INluEngine {
 
     private Dictionary<string, string> ExtractEntities(string input) {
         var entities = new Dictionary<string, string>();
+        // Entity: Navn
+        var navnMatch = Regex.Match(input, @"(?:navn\s+|jeg hedder\s+)([a-zæøå]+)");
+        if (navnMatch.Success)
+            entities["Navn"] = navnMatch.Groups[1].Value;
 
-        // Gæster
-        var guests = Regex.Match(input, @"(\d+)\s*gæster?");
-        if (guests.Success) entities["Guests"] = guests.Groups[1].Value;
+        // Entity: Email
+        var emailMatch = Regex.Match(input, @"([\w\.-]+@[\w\.-]+\.\w+)");
+        if (emailMatch.Success)
+            entities["Email"] = emailMatch.Value;
 
-        // By
-        var city = Regex.Match(input, @"i\s+([a-zA-ZæøåÆØÅ]+)");
-        if (city.Success) entities["City"] = city.Groups[1].Value;
-
-        // Datoer
-        var dates = Regex.Matches(input, @"\d{1,2}/\d{1,2}");
-        if (dates.Count > 0) entities["FromDate"] = dates[0].Value;
-        if (dates.Count > 1) entities["ToDate"] = dates[1].Value;
+        // Entity: Brugernavn
+        var brugernavnMatch = Regex.Match(input, @"brugernavn\s+([a-zæøå0-9_]+)");
+        if (brugernavnMatch.Success)
+            entities["Brugernavn"] = brugernavnMatch.Groups[1].Value;
+        
 
         return entities;
     }

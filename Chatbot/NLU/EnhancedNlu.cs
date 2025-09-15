@@ -26,20 +26,20 @@ public class EnhancedNlu : INluEngine {
         else if (ContainsAny(tokens, KodeKeywords)) intent = "Password";
         else if (ContainsAny(tokens, BrugerKeywords)) intent = "Bruger";
 
-        // Entity: City
-        var cityMatch = Regex.Match(input, @"i\s+([a-zæøå]+)");
-        if (cityMatch.Success)
-            entities["City"] = cityMatch.Groups[1].Value;
+        // Entity: Navn
+        var navnMatch = Regex.Match(input, @"(?:navn\s+|jeg hedder\s+)([a-zæøå]+)");
+        if (navnMatch.Success)
+            entities["Navn"] = navnMatch.Groups[1].Value;
 
-        // Entity: Dates
-        var dateMatches = Regex.Matches(input, @"\d{1,2}/\d{1,2}");
-        if (dateMatches.Count >= 1) entities["FromDate"] = dateMatches[0].Value;
-        if (dateMatches.Count >= 2) entities["ToDate"] = dateMatches[1].Value;
+        // Entity: Email
+        var emailMatch = Regex.Match(input, @"([\w\.-]+@[\w\.-]+\.\w+)");
+        if (emailMatch.Success)
+            entities["Email"] = emailMatch.Value;
 
-        // Entity: Guests
-        var guestMatch = Regex.Match(input, @"til\s+(\d+)");
-        if (guestMatch.Success)
-            entities["Guests"] = guestMatch.Groups[1].Value;
+        // Entity: Brugernavn
+        var brugernavnMatch = Regex.Match(input, @"brugernavn\s+([a-zæøå0-9_]+)");
+        if (brugernavnMatch.Success)
+            entities["Brugernavn"] = brugernavnMatch.Groups[1].Value;
 
         return new NluResult(intent, entities);
     }
