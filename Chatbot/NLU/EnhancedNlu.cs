@@ -7,9 +7,10 @@ using System.Text.RegularExpressions;
 namespace Chatbot.NLU;
 
 public class EnhancedNlu : INluEngine {
-    private static readonly string[] BookingKeywords = ["book", "reserver", "værelse"];
-    private static readonly string[] FaqKeywords = ["faq", "password", "kode", "login"];
-    private static readonly string[] ScheduleKeywords = ["skema", "uge", "lektion", "undervisning"];
+    private static readonly string[] LoginKeywords = ["login", "loginfejl"];
+    private static readonly string[] KodeKeywords = ["password", "kode", "reset", "nulstille", "glemt"];
+    private static readonly string[] BrugerKeywords = ["bruger", "opret", "oprette", "opretter"];
+    //private static readonly string[] BilKeywords = ["bil", "opret"];
 
     private static bool ContainsAny(IEnumerable<string> tokens, string[] keywords) =>
         tokens.Any(t => keywords.Contains(t));
@@ -21,9 +22,9 @@ public class EnhancedNlu : INluEngine {
         string intent = "Unknown";
 
         // Intent via token match
-        if (ContainsAny(tokens, BookingKeywords)) intent = "BookRoom";
-        else if (ContainsAny(tokens, FaqKeywords)) intent = "CheckFaq";
-        else if (ContainsAny(tokens, ScheduleKeywords)) intent = "CheckSchedule";
+        if (ContainsAny(tokens, LoginKeywords)) intent = "Login";
+        else if (ContainsAny(tokens, KodeKeywords)) intent = "Password";
+        else if (ContainsAny(tokens, BrugerKeywords)) intent = "Bruger";
 
         // Entity: City
         var cityMatch = Regex.Match(input, @"i\s+([a-zæøå]+)");
