@@ -36,7 +36,7 @@ public class HybridNlu : INluEngine {
 
         // Supervised pipeline
         //Brug korrekt absolut sti
-        var path = Path.Combine(AppContext.BaseDirectory, "Data", "hotel_intents.csv");
+        var path = Path.Combine(AppContext.BaseDirectory, "Data", "support_intents.csv");
 
         // Fejlbesked hvis fil ikke findes
         if (!File.Exists(path))

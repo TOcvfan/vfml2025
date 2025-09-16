@@ -10,6 +10,9 @@ public class EnhancedNlu : INluEngine {
     private static readonly string[] LoginKeywords = ["login", "loginfejl"];
     private static readonly string[] KodeKeywords = ["password", "kode", "reset", "nulstille", "glemt"];
     private static readonly string[] BrugerKeywords = ["bruger", "opret", "oprette", "opretter"];
+    private static readonly string[] GlemtKodeKeywords = ["glemt", "mistet", "finde"];
+    private static readonly string[] ResetKodeKeywords = ["reset", "nulstille", "skifte", "ændre"];
+
     //private static readonly string[] BilKeywords = ["bil", "opret"];
 
     private static bool ContainsAny(IEnumerable<string> tokens, string[] keywords) =>
@@ -38,8 +41,16 @@ public class EnhancedNlu : INluEngine {
 
         // Entity: Brugernavn
         var brugernavnMatch = Regex.Match(input, @"brugernavn\s+([a-zæøå0-9_]+)");
+
         if (brugernavnMatch.Success)
             entities["Brugernavn"] = brugernavnMatch.Groups[1].Value;
+        if (ContainsAny(tokens, GlemtKodeKeywords)) {
+            intent = "Password";
+            entities["Action"] = "Forgot";
+        } else if (ContainsAny(tokens, ResetKodeKeywords)) {
+            intent = "Password";
+            entities["Action"] = "Reset";
+        }
 
         return new NluResult(intent, entities);
     }

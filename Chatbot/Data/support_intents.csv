@@ -1,0 +1,8 @@
+Text,Intent
+"jeg har glemt mit password",Password
+"hvordan nulstiller jeg mit password",Password
+"hvordan resetter jeg mit password",Password
+"jeg kan ikke logge ind",Login
+"jeg kan ikke komme ind på min konto",Login
+"hvordan opretter jeg en bruger",Bruger
+"kan du oprette en bruger for mig",Bruger
