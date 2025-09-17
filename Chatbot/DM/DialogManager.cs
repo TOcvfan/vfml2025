@@ -32,7 +32,6 @@ public class DialogManager {
 
         var state = _sessions[sessionId];
         var intent = state.CurrentIntent;
-        var entities = state.CollectedEntities;
 
         // STATE MACHINE pr intent
         switch (intent) {
@@ -50,8 +49,21 @@ public class DialogManager {
 
     private SessionState HandlePassword(SessionState state, string userInput) {
         var step = state.CurrentStep;
+        var entities = state.CollectedEntities;
 
-        
+        if (step == "start") {
+            if (entities["Action"] == "Change") {
+                state.CurrentStep = "ForklarSkift";
+            } else if (entities["Action"] == "Reset") {
+                state.CurrentStep = "AskLoggedInd";
+            }
+        } else if(step == "AskLoggedInd") {
+            if(userInput == "ja") {
+                state.CurrentStep = "forklarLogudChange";
+            } else if(userInput == "nej") {
+                state.CurrentStep = "forklarChange";
+            }
+        }
 
         return state;
     }
@@ -59,11 +71,17 @@ public class DialogManager {
     private SessionState HandleLogin(SessionState state, string userInput) {
         var step = state.CurrentStep;
 
-        if (step == "Start") {
-            state.CurrentStep = "AskBookingId";
-        } else if (step == "AskBookingId") {
-            state.CollectedEntities["BookingId"] = userInput;
-            state.CurrentStep = "ConfirmCancel";
+        if(step == "start") {
+            state.CurrentStep = "AskFejlmeddelse";
+        } else if (step == "AskFejlmeddelse") {
+            if(userInput == "forkert password"){
+                state.CurrentStep = "SkiftPassword";
+            } else if(userInput == "bruger findes ikke") {
+                state.CurrentStep = "NyBruger";
+            }
+        } else if(step == "NyBruger") {
+            state.CurrentStep = "Start";
+            state.CurrentIntent = "Bruger";
         }
 
         return state;

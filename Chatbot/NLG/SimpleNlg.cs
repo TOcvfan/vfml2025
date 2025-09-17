@@ -18,9 +18,6 @@ public class SimpleNlg : INlgEngine {
         entities.TryGetValue("Navn", out var navn);
         navn ??= "1";
 
-        //entities.TryGetValue("BookingId", out var bookingId);
-        //bookingId ??= "ukendt ID";
-
         return state.CurrentIntent switch {
             "Bruger" => step switch {
                 "AskBrugernavn" => "Hvilket brugernavn ønsker du at bruge",
@@ -30,8 +27,10 @@ public class SimpleNlg : INlgEngine {
                 _ => "Jeg forstod ikke din forespørgsel."
             },
             "Password" => step switch {
-                "Ask" => "Hvad er ID'et på din booking, du vil aflyse?",
-                "ConfirmCancel" => $"Din booking med ID er nu aflyst.",
+                "AskLoggedInd" => "Er logget ind?",
+                "forklarReset" => $"Din booking med ID er nu aflyst.",
+                "forklarChange" => $"Din booking med ID er nu aflyst.",
+                "forklarLogudChange" => $"Din booking med ID er nu aflyst.",
                 _ => "Beklager, noget gik galt."
             },
             "Login" => step switch {

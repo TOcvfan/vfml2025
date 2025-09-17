@@ -1,10 +1,14 @@
-﻿namespace Chatbot.NLU;
-using Microsoft.ML.Data;
-// Denne klasse repræsenterer dine træningsdata (tekst + ønsket intent)
-public class SupportData {
-    [LoadColumn(0)]
-    public string Text { get; set; } = "";
+﻿using Microsoft.ML.Data;
 
-    [LoadColumn(1)]
-    public string Intent { get; set; } = "";
+namespace Chatbot.NLU {
+    /// <summary>
+    /// Repræsenterer én datapost til supervised intent-træning.
+    /// </summary>
+    public class SupportData {
+        [LoadColumn(0)]
+        public string Intent { get; set; }
+
+        [LoadColumn(1)]
+        public string Text { get; set; }
+    }
 }
