@@ -1,105 +1,116 @@
 ﻿using Microsoft.ML;
 using Microsoft.ML.Data;
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
+using System;
 
-namespace Chatbot.NLU {
-    /// <summary>
-    /// Hybrid NLU engine: supervised ML.NET multiclass classifier + KMeans fallback.
-    /// </summary>
-    public class HybridNlu : INluEngine {
-        private readonly MLContext _mlContext;
-        private readonly ITransformer _trainedModel;
-        private readonly PredictionEngine<SupportData, SupportPrediction> _predictor;
+namespace Chatbot.NLU;
 
-        private readonly ITransformer _kmeansModel;
-        private readonly PredictionEngine<SupportData, KMeansPrediction> _kmeansPredictor;
+/// <summary>
+/// Hybrid NLU engine combining supervised ML.NET classification with KMeans fallback.
+/// Ekstern AI er deaktiveret – denne version bruger kun lokale ML-modeller.
+/// </summary>
+public class HybridNlu : INluEngine {
+    private readonly MLContext _mlContext;
+    private readonly ITransformer _trainedModel;
+    private readonly PredictionEngine<IntentModelInput, IntentModelOutput> _predictor;
 
-        private readonly Dictionary<uint, string> _clusterToIntent;
+    private readonly IDataView _unsupervisedData;
+    private readonly ITransformer _kmeansModel;
+    private readonly Dictionary<uint, string> _clusterToIntent;
 
-        /// <param name="csvRelativePath">Relativ sti fra AppContext.BaseDirectory til CSV (default: Data/support_intents.csv)</param>
-        public HybridNlu(string csvRelativePath = "Data/support_intents.csv") {
-            _mlContext = new MLContext();
+    public HybridNlu() {
+        _mlContext = new MLContext();
 
-            var path = Path.Combine(AppContext.BaseDirectory, csvRelativePath);
-            if (!File.Exists(path))
-                throw new FileNotFoundException($"CSV-filen blev ikke fundet: {path}");
+        // Brug absolut sti til træningsdata
+        var path = Path.Combine(AppContext.BaseDirectory, "Data", "support_intents.csv");
 
-            // Load training data
-            var data = _mlContext.Data.LoadFromTextFile<SupportData>(path, hasHeader: true, separatorChar: ',');
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"CSV-filen blev ikke fundet: {path}");
 
-            // Supervised pipeline: text -> features -> label-key -> trainer -> map key back to label string
-            var pipeline = _mlContext.Transforms.Text
-                    .FeaturizeText(outputColumnName: "Features", inputColumnName: nameof(SupportData.Text))
-                .Append(_mlContext.Transforms.Conversion.MapValueToKey(outputColumnName: "Label", inputColumnName: nameof(SupportData.Intent)))
-                .Append(_mlContext.MulticlassClassification.Trainers
-                    .SdcaMaximumEntropy(labelColumnName: "Label", featureColumnName: "Features"))
-                .Append(_mlContext.Transforms.Conversion.MapKeyToValue(outputColumnName: "PredictedLabel", inputColumnName: "PredictedLabel"));
+        // Supervised træning
+        var data = _mlContext.Data.LoadFromTextFile<IntentModelInput>(
+            path: path,
+            hasHeader: true,
+            separatorChar: ',');
 
-            _trainedModel = pipeline.Fit(data);
-            _predictor = _mlContext.Model.CreatePredictionEngine<SupportData, SupportPrediction>(_trainedModel);
+        /*var pipeline = _mlContext.Transforms.Text.FeaturizeText("Features", nameof(IntentModelInput.Text))
+            .Append(_mlContext.Transforms.Conversion.MapValueToKey("Label", nameof(IntentModelInput.Label)))
+            .Append(_mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features"))
+            .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));*/
+        var pipeline = _mlContext.Transforms.Conversion
+    .MapValueToKey("Label", nameof(IntentModelInput.Label))
+    .Append(_mlContext.Transforms.Text.FeaturizeText("Features", nameof(IntentModelInput.Text)))
+    .Append(_mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features"))
+    .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
 
-            // KMeans unsupervised fallback (same text -> features -> kmeans)
-            var kmeansPipeline = _mlContext.Transforms.Text
-                    .FeaturizeText(outputColumnName: "Features", inputColumnName: nameof(SupportData.Text))
-                .Append(_mlContext.Clustering.Trainers.KMeans(featureColumnName: "Features", numberOfClusters: 3));
+        _trainedModel = pipeline.Fit(data);
+        _predictor = _mlContext.Model.CreatePredictionEngine<IntentModelInput, IntentModelOutput>(_trainedModel);
 
-            _kmeansModel = kmeansPipeline.Fit(data);
-            _kmeansPredictor = _mlContext.Model.CreatePredictionEngine<SupportData, KMeansPrediction>(_kmeansModel);
+        // Unsupervised fallback (KMeans clustering)
+        _unsupervisedData = data;
+        var kmeansPipeline = _mlContext.Transforms.Text.FeaturizeText("Features", nameof(IntentModelInput.Text))
+            .Append(_mlContext.Clustering.Trainers.KMeans("Features", numberOfClusters: 3));
 
-            // Heuristisk mapping af cluster-id -> intent (tilpas efter dit datasæt)
-            _clusterToIntent = new Dictionary<uint, string>
-            {
-                { 0, "Login" },
-                { 1, "Password" },
-                { 2, "Bruger" }
-            };
+        _kmeansModel = kmeansPipeline.Fit(_unsupervisedData);
+
+        // Map cluster IDs til intents (heuristik)
+        _clusterToIntent = new Dictionary<uint, string>
+        {
+            { 0, "Login" },
+            { 1, "Password" },
+            { 2, "Bruger" }
+        };
+    }
+
+    public async Task<NluResult> PredictAsync(string input) {
+        // Supervised prediction
+        var prediction = _predictor.Predict(new IntentModelInput { Text = input });
+
+        // Hvis input er for kort eller small talk → giv Unknown
+        if (string.IsNullOrWhiteSpace(input) || input.Length < 3 ||
+            new[] { "hej", "tak", "goddag", "hello" }.Contains(input.ToLower())) {
+            return new NluResult("Unknown", new Dictionary<string, string>());
         }
 
-        public Task<NluResult> PredictAsync(string input) {
-            if (string.IsNullOrWhiteSpace(input))
-                return Task.FromResult(new NluResult("Unknown"));
+        // Fallback: KMeans clustering
+        var vectorized = _mlContext.Data.LoadFromEnumerable(new[]
+        {
+        new IntentModelInput { Text = input }
+    });
 
-            // Supervised prediction
-            var pred = _predictor.Predict(new SupportData { Text = input });
-            var predictedIntent = pred?.PredictedIntent;
+        var transformed = _kmeansModel.Transform(vectorized);
+        var clusterColumn = transformed.GetColumn<uint>("PredictedLabel").FirstOrDefault();
+        var fallbackIntent = _clusterToIntent.GetValueOrDefault(clusterColumn, "Unknown");
 
-            if (!string.IsNullOrWhiteSpace(predictedIntent))
-                return Task.FromResult(new NluResult(predictedIntent, ExtractEntities(input)));
-
-            // Hvis supervised ikke gav et brugbart resultat -> fallback til KMeans
-            var kRes = _kmeansPredictor.Predict(new SupportData { Text = input });
-            var clusterId = kRes?.PredictedLabel ?? 0u;
-            var fallbackIntent = _clusterToIntent.TryGetValue(clusterId, out var mapped) ? mapped : "Unknown";
-
-            return Task.FromResult(new NluResult(fallbackIntent, ExtractEntities(input)));
+        // Hvis fallback er tvivlsomt → Unknown
+        if (fallbackIntent == "Unknown") {
+            return new NluResult("Unknown", new Dictionary<string, string>());
         }
 
-        private Dictionary<string, string> ExtractEntities(string input) {
-            var entities = new Dictionary<string, string>();
+        return new NluResult(fallbackIntent, ExtractEntities(input));
+    }
 
-            var navnMatch = Regex.Match(input, @"(?:navn\s+|jeg hedder\s+)([a-zæøå]+)", RegexOptions.IgnoreCase);
-            if (navnMatch.Success) entities["Navn"] = navnMatch.Groups[1].Value;
+    private Dictionary<string, string> ExtractEntities(string input) {
+        var entities = new Dictionary<string, string>();
 
-            var emailMatch = Regex.Match(input, @"([\w\.-]+@[\w\.-]+\.\w+)");
-            if (emailMatch.Success) entities["Email"] = emailMatch.Value;
+        // Entity: Navn
+        var navnMatch = Regex.Match(input, @"(?:navn\s+|jeg hedder\s+)([a-zæøå]+)");
+        if (navnMatch.Success)
+            entities["Navn"] = navnMatch.Groups[1].Value;
 
-            var brugernavnMatch = Regex.Match(input, @"brugernavn\s+([a-zæøå0-9_]+)", RegexOptions.IgnoreCase);
-            if (brugernavnMatch.Success) entities["Brugernavn"] = brugernavnMatch.Groups[1].Value;
+        // Entity: Email
+        var emailMatch = Regex.Match(input, @"([\w\.-]+@[\w\.-]+\.\w+)");
+        if (emailMatch.Success)
+            entities["Email"] = emailMatch.Value;
 
-            return entities;
-        }
+        // Entity: Brugernavn
+        var brugernavnMatch = Regex.Match(input, @"brugernavn\s+([a-zæøå0-9_]+)");
+        if (brugernavnMatch.Success)
+            entities["Brugernavn"] = brugernavnMatch.Groups[1].Value;
 
-        // ML.NET output for KMeans
-        private class KMeansPrediction {
-            [ColumnName("PredictedLabel")]
-            public uint PredictedLabel { get; set; }
-
-            // Score er normalt ikke nødvendig her, men kan være nyttig til debugging
-            public float[] Score { get; set; }
-        }
+        return entities;
     }
 }

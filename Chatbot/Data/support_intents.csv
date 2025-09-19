@@ -2,7 +2,45 @@ Text,Intent
 "jeg har glemt mit password",Password
 "hvordan nulstiller jeg mit password",Password
 "hvordan resetter jeg mit password",Password
+"glemt adgangskode",Password
+"kan ikke huske mit kodeord",Password
+"jeg skal have en ny adgangskode",Password
+"mistet password",Password
+"hvordan ændrer jeg min kode",Password
+"jeg vil gerne skifte mit password",Password
+"nulstil adgangskode",Password
+"kan du hjælpe mig med at få nyt password",Password
+"hvordan får jeg tilsendt en ny kode",Password
+"min kode virker ikke",Password
+"jeg vil nulstille mit login password",Password
+
 "jeg kan ikke logge ind",Login
 "jeg kan ikke komme ind på min konto",Login
+"login virker ikke",Login
+"jeg bliver smidt af når jeg prøver at logge ind",Login
+"mit login fejler hver gang",Login
+"jeg har problemer med at logge på",Login
+"jeg bliver ikke logget ind",Login
+"min konto accepterer ikke mit login",Login
+"kan ikke logge ind på min profil",Login
+"systemet nægter mit login",Login
+"jeg kan ikke åbne min konto",Login
+"login fejlkode",Login
+"mit brugernavn og kode virker ikke",Login
+"jeg bliver nægtet adgang ved login",Login
+
 "hvordan opretter jeg en bruger",Bruger
 "kan du oprette en bruger for mig",Bruger
+"jeg vil gerne lave en ny konto",Bruger
+"hvordan laver jeg en profil",Bruger
+"jeg vil registrere mig som bruger",Bruger
+"jeg har brug for at oprette en ny bruger",Bruger
+"hjælp mig med at lave en konto",Bruger
+"hvordan registrerer jeg en profil",Bruger
+"jeg skal have en ny profil",Bruger
+"jeg vil gerne blive medlem",Bruger
+"hvordan tilmelder jeg mig",Bruger
+"jeg vil gerne oprette login",Bruger
+"jeg ønsker at blive oprettet som bruger",Bruger
+"kan jeg få en ny konto",Bruger
+"hvordan laver jeg en brugerprofil",Bruger

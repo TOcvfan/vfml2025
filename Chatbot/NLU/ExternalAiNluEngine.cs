@@ -11,13 +11,13 @@ namespace Chatbot.NLU {
             _http = http;
         }
 
+        // Implementerer INluEngine
         public async Task<NluResult> PredictAsync(string userInput) {
-            // Systemprompt for at tvinge dansk
             string systemPrompt = "Du er en hjælper, der altid svarer på flydende dansk. " +
                                   "Svar aldrig på svensk eller norsk, og brug kun dansk i alle svar.";
 
             var request = new {
-                model = "mistral", // her kan du også bruge "phi3:mini", "llama2", osv.
+                model = "phi4-mini",
                 prompt = $"{systemPrompt}\n\nBrugerens input: {userInput}"
             };
 
@@ -26,8 +26,9 @@ namespace Chatbot.NLU {
 
             var json = await response.Content.ReadAsStringAsync();
 
+            // Her parser vi ikke intent/entities endnu — returnerer fallback-resultat med rå respons.
             return new NluResult {
-                Intent = "ExternalFallback", // her kan du senere parse json til intent/entities
+                Intent = "ExternalFallback",
                 Entities = new Dictionary<string, string>(),
                 RawResponse = json
             };

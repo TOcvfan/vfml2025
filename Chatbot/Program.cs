@@ -1,23 +1,30 @@
-using System;
-using Chatbot.Models;
+using Chatbot.DM;
+using Chatbot.NLU;
 
-namespace Chatbot {
-    class Program {
-        static void Main(string[] args) {
-            Console.WriteLine("Chatbot backend running...");
-            Console.WriteLine("Skriv 'exit' for at afslutte.\n");
+class Program {
+    static async Task Main(string[] args) {
+        Console.WriteLine("Starter chatbot demo...");
 
-            while (true) {
-                Console.Write("Skriv til botten: ");
-                string userInput = Console.ReadLine();
+        var nlu = new HybridNlu();
+        var dialogManager = new DialogManager(nlu);
 
-                if (string.Equals(userInput, "exit", StringComparison.OrdinalIgnoreCase)) {
-                    Console.WriteLine("Programmet afsluttes...");
-                    break;
+        string sessionId = Guid.NewGuid().ToString();
+
+        while (true) {
+            Console.Write("\nDu: ");
+            var userInput = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(userInput) || userInput.ToLower() == "exit")
+                break;
+
+            var state = await dialogManager.HandleInput(userInput, sessionId); // <-- await nu
+
+            Console.WriteLine($"[Intent: {state.CurrentIntent}, Step: {state.CurrentStep}]");
+
+            if (state.CollectedEntities.Any()) {
+                Console.WriteLine("Entities:");
+                foreach (var kv in state.CollectedEntities) {
+                    Console.WriteLine($" - {kv.Key}: {kv.Value}");
                 }
-
-                string svar = BotLogic.Handle(userInput);
-                Console.WriteLine("Bot: " + svar);
             }
         }
     }

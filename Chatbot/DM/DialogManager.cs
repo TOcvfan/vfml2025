@@ -1,9 +1,4 @@
 ﻿using System.Collections.Generic;
-/**
-* DialogManager constructor
-* @param nlu An instance of an NLU engine
-* @param nlg An instance of an NLG engine
-*/
 using Chatbot.Models;
 using Chatbot.NLU;
 
@@ -11,18 +6,15 @@ namespace Chatbot.DM;
 
 public class DialogManager {
     private readonly INluEngine _nlu;
-
-    // Sessions per user ID (in real apps: per JWT or user session)
     private readonly Dictionary<string, SessionState> _sessions = new();
 
     public DialogManager(INluEngine nlu) {
         _nlu = nlu;
     }
 
-    public SessionState HandleInput(string userInput, string sessionId) {
+    public async Task<SessionState> HandleInput(string userInput, string sessionId) {
         if (!_sessions.ContainsKey(sessionId)) {
-            // Første gang: brug beslutningstræ (intent-analyse)
-            var nluResult = _nlu.Predict(userInput);
+            var nluResult = await _nlu.PredictAsync(userInput); // <-- nu async
             _sessions[sessionId] = new SessionState {
                 CurrentIntent = nluResult.Intent,
                 CollectedEntities = new Dictionary<string, string>(nluResult.Entities),
@@ -33,7 +25,6 @@ public class DialogManager {
         var state = _sessions[sessionId];
         var intent = state.CurrentIntent;
 
-        // STATE MACHINE pr intent
         switch (intent) {
             case "Password":
                 return HandlePassword(state, userInput);
@@ -51,18 +42,14 @@ public class DialogManager {
         var step = state.CurrentStep;
         var entities = state.CollectedEntities;
 
-        if (step == "start") {
-            if (entities["Action"] == "Change") {
-                state.CurrentStep = "ForklarSkift";
-            } else if (entities["Action"] == "Reset") {
-                state.CurrentStep = "AskLoggedInd";
+        if (step == "Start") {
+            if (entities.TryGetValue("Action", out var action)) {
+                if (action == "Change") state.CurrentStep = "ForklarSkift";
+                else if (action == "Reset") state.CurrentStep = "AskLoggedInd";
             }
-        } else if(step == "AskLoggedInd") {
-            if(userInput == "ja") {
-                state.CurrentStep = "forklarLogudChange";
-            } else if(userInput == "nej") {
-                state.CurrentStep = "forklarChange";
-            }
+        } else if (step == "AskLoggedInd") {
+            if (userInput.ToLower() == "ja") state.CurrentStep = "forklarLogudChange";
+            else if (userInput.ToLower() == "nej") state.CurrentStep = "forklarChange";
         }
 
         return state;
@@ -71,15 +58,15 @@ public class DialogManager {
     private SessionState HandleLogin(SessionState state, string userInput) {
         var step = state.CurrentStep;
 
-        if(step == "start") {
+        if (step == "Start") {
             state.CurrentStep = "AskFejlmeddelse";
         } else if (step == "AskFejlmeddelse") {
-            if(userInput == "forkert password"){
+            if (userInput.ToLower().Contains("forkert password")) {
                 state.CurrentStep = "SkiftPassword";
-            } else if(userInput == "bruger findes ikke") {
+            } else if (userInput.ToLower().Contains("bruger findes ikke")) {
                 state.CurrentStep = "NyBruger";
             }
-        } else if(step == "NyBruger") {
+        } else if (step == "NyBruger") {
             state.CurrentStep = "Start";
             state.CurrentIntent = "Bruger";
         }
